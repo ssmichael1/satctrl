@@ -32,4 +32,8 @@ pub use basemath::rk4_integrate_inplace;
 /// Math utilities
 pub use basemath::matutils;
 
+/// Filters (Kalman, etc)
 pub mod filters;
+
+/// Library utilities
+pub mod utils;
