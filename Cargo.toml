@@ -1,0 +1,21 @@
+[package]
+name = "satctrl"
+version = "0.1.1"
+readme = "README.md"
+description = "Software suitable for embedded systems that enables attitude control of a satellite"
+edition = "2021"
+
+[lib]
+name = "satctrl"
+
+[dependencies]
+
+[dev-dependencies]
+rand = "0.8.4"       # used for testing
+rand_distr = "0.4.2" # used for testing
+
+[features]
+
+
+[profile.test]
+opt-level = 3
