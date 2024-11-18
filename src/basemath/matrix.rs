@@ -649,17 +649,18 @@ impl<const M: usize> Matrix<M, M> {
     /// # Example
     /// ```
     /// use satctrl::Matrix;
-    /// let d = [1.0, 2.0, 3.0];
-    /// let m = Matrix::<3, 3>::diag(&d);
+    /// use satctrl::Vector;
+    /// let d = Vector::<3>::from_slice(&[1.0, 2.0, 3.0]);
+    /// let m = Matrix::<3, 3>::diag_from_vector(&d);
     /// ```
     ///
     /// # Returns
     /// A new diagonal matrix
     ///
-    pub fn diag(d: &Matrix<M, 1>) -> Self {
+    pub fn diag_from_vector(d: &Vector<M>) -> Self {
         let mut data = [[0.0; M]; M];
         for (i, row) in data.iter_mut().enumerate() {
-            row[i] = d.data[i][0];
+            row[i] = d[i];
         }
         Self { data }
     }
@@ -949,7 +950,7 @@ impl Vector<3> {
     ///
     /// # Example
     /// ```
-    /// use satctrl::Vector;
+    /// use satctrl::Vector3;
     /// let xhat = Vector3::xhat();
     /// ```
     ///
@@ -964,7 +965,7 @@ impl Vector<3> {
     ///
     /// # Example
     /// ```
-    /// use satctrl::Vector;
+    /// use satctrl::Vector3;
     /// let yhat = Vector3::yhat();
     /// ```
     ///
@@ -979,7 +980,7 @@ impl Vector<3> {
     ///
     /// # Example
     /// ```
-    /// use satctrl::Vector;
+    /// use satctrl::Vector3;
     /// let zhat = Vector3::zhat();
     /// ```
     ///

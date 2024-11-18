@@ -1,4 +1,5 @@
 mod basemath;
+mod instant;
 mod types;
 
 // All the types
@@ -30,10 +31,12 @@ pub use basemath::rk4_integrate;
 pub use basemath::rk4_integrate_inplace;
 
 /// Math utilities
-pub use basemath::matutils;
+pub use basemath::matrixutils;
 
 /// Filters (Kalman, etc)
 pub mod filters;
-
 /// Library utilities
 pub mod utils;
+
+// Time utilities
+pub use instant::Instant;

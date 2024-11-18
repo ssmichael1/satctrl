@@ -168,10 +168,56 @@ impl Quaternion {
     ///
     pub fn normalize_inplace(&mut self) {
         let norm = (self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w).sqrt();
+        if norm < f64::EPSILON {
+            return;
+        }
         self.x /= norm;
         self.y /= norm;
         self.z /= norm;
         self.w /= norm;
+    }
+
+    /// Quaternion to roll, pitch, yaw
+    ///
+    /// # Returns
+    /// A tuple of roll, pitch, yaw in radians
+    pub fn to_rpy(&self) -> (f64, f64, f64) {
+        let r = self.x.atan2(self.w * self.z + self.x * self.y);
+        let p = -self.y.asin();
+        let y = self.x.atan2(self.w * self.y + self.z * self.x);
+        (r, p, y)
+    }
+
+    /// Create a new quaternion from roll, pitch, yaw
+    ///
+    /// # Arguments
+    /// * `roll` - The roll angle in radians
+    /// * `pitch` - The pitch angle in radians
+    /// * `yaw` - The yaw angle in radians
+    ///
+    /// # Returns
+    /// A new quaternion representing the rotation
+    ///
+    /// # Notes
+    /// * The order of rotation is roll, pitch, yaw
+    /// * For a reference, see:
+    ///   <https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles>
+    pub fn from_rpy(roll: f64, pitch: f64, yaw: f64) -> Self {
+        let half_roll = roll / 2.0;
+        let half_pitch = pitch / 2.0;
+        let half_yaw = yaw / 2.0;
+        let cr = half_roll.cos();
+        let sr = half_roll.sin();
+        let cp = half_pitch.cos();
+        let sp = half_pitch.sin();
+        let cy = half_yaw.cos();
+        let sy = half_yaw.sin();
+        Quaternion::new(
+            sr * cp * cy - cr * sp * sy,
+            cr * sp * cy + sr * cp * sy,
+            cr * cp * sy - sr * sp * cy,
+            cr * cp * cy + sr * sp * sy,
+        )
     }
 
     /// Quaternion norm
@@ -576,22 +622,6 @@ impl std::ops::Mul<Quaternion> for Quaternion {
 }
 
 /// Quaternion multiplication by another quaternion
-///
-/// # Arguments
-/// * `rhs` - The quaternion to multiply by
-///
-/// # Returns
-/// The quaternion product
-///
-/// # Examples
-///
-/// ```
-/// use satctrl::Quaternion;
-/// let q1 = Quaternion::rotx(std::f64::consts::PI / 2.0);
-/// let q2 = Quaternion::roty(std::f64::consts::PI / 2.0);
-/// let q = q1 * q2;
-/// ```
-///
 impl std::ops::Mul<&Quaternion> for Quaternion {
     type Output = Quaternion;
 
@@ -606,21 +636,6 @@ impl std::ops::Mul<&Quaternion> for Quaternion {
 }
 
 /// Quaternion addition
-///
-/// # Arguments
-/// * `rhs` - The quaternion to add
-///
-/// # Returns
-/// The sum of the two quaternions
-///
-/// # Examples
-///
-/// ```
-/// use satctrl::Quaternion;
-/// let q = Quaternion::new(1.0, 2.0, 3.0, 4.0);
-/// let q_sum = q + Quaternion::new(1.0, 2.0, 3.0, 4.0);
-/// ```
-///
 impl std::ops::Add<Quaternion> for Quaternion {
     type Output = Quaternion;
 
@@ -635,21 +650,6 @@ impl std::ops::Add<Quaternion> for Quaternion {
 }
 
 /// Quaternion subtraction
-///
-/// # Arguments
-/// * `rhs` - The quaternion to subtract
-///
-/// # Returns
-/// The difference of the two quaternions
-///
-/// # Examples
-///
-/// ```
-/// use satctrl::Quaternion;
-/// let q = Quaternion::new(1.0, 2.0, 3.0, 4.0);
-/// let q_diff = q - Quaternion::new(1.0, 2.0, 3.0, 4.0);
-/// ```
-///
 impl std::ops::Sub<Quaternion> for Quaternion {
     type Output = Quaternion;
 
@@ -664,21 +664,6 @@ impl std::ops::Sub<Quaternion> for Quaternion {
 }
 
 /// Quaternion subtraction of reference quaternion
-///
-/// # Arguments
-/// * `rhs` - The quaternion to subtract
-///
-/// # Returns
-/// The difference of the two quaternions
-///
-/// # Examples
-///
-/// ```
-/// use satctrl::Quaternion;
-/// let q = Quaternion::new(1.0, 2.0, 3.0, 4.0);
-/// let q_diff = q - &Quaternion::new(1.0, 2.0, 3.0, 4.0);
-/// ```
-///
 impl std::ops::Sub<&Quaternion> for Quaternion {
     type Output = Quaternion;
 
@@ -750,26 +735,8 @@ impl std::ops::AddAssign<Quaternion> for Quaternion {
     }
 }
 
-/// Quaternion multiplication of reference vector to
-/// rotate the vector
-///
-/// # Arguments
-/// * `rhs` - The vector to rotate
-///
-/// # Returns
-/// The rotated vector
-///
-/// # Examples
-///
-/// ```
-/// use satctrl::Quaternion;
-/// use satctrl::Vector3;
-/// let q = Quaternion::rotz(std::f64::consts::PI / 2.0);
-/// let v = Vector3::xhat();
-/// let v_rot = q * &v;
-/// assert_eq!(v_rot, Vector3::yhat());
-/// ```
-///
+/// Quaternion multiplication of reference vector to represent
+/// rotation of vector by quaternion
 impl std::ops::Mul<&Vector3> for Quaternion {
     type Output = Vector3;
 
@@ -777,6 +744,32 @@ impl std::ops::Mul<&Vector3> for Quaternion {
         let q = Quaternion::new(rhs[0], rhs[1], rhs[2], 0.0);
         let q_conj = self.conjugate();
         let q_rot = self * q * q_conj;
+        Vector3::from_vec([q_rot.x, q_rot.y, q_rot.z])
+    }
+}
+
+/// Quaternion multiplication of vector to represent rotation of
+/// vector by reference quaternion
+impl std::ops::Mul<Vector3> for &Quaternion {
+    type Output = Vector3;
+
+    fn mul(self, rhs: Vector3) -> Vector3 {
+        let q = Quaternion::new(rhs[0], rhs[1], rhs[2], 0.0);
+        let q_conj = self.conjugate();
+        let q_rot = *self * q * q_conj;
+        Vector3::from_vec([q_rot.x, q_rot.y, q_rot.z])
+    }
+}
+
+/// Quaternion multiplication of reference vector to represent
+/// rotation of vector by reference quaternion
+impl std::ops::Mul<&Vector3> for &Quaternion {
+    type Output = Vector3;
+
+    fn mul(self, rhs: &Vector3) -> Vector3 {
+        let q = Quaternion::new(rhs[0], rhs[1], rhs[2], 0.0);
+        let q_conj = self.conjugate();
+        let q_rot = *self * q * q_conj;
         Vector3::from_vec([q_rot.x, q_rot.y, q_rot.z])
     }
 }

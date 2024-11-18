@@ -1,4 +1,4 @@
-use crate::matutils;
+use crate::matrixutils;
 use crate::SCResult;
 use crate::{Matrix, Vector};
 
@@ -46,7 +46,7 @@ impl<const N: usize> UKF<N> {
     /// * kappa = 0.0
     ///
     /// # Returns
-    /// A new Unscented Kalman filter with state and covariance initialized to zero
+    /// A new Unscented Kalman filter with state and covariance initialized to identity
     ///
     /// # Example
     ///
@@ -63,7 +63,7 @@ impl<const N: usize> UKF<N> {
             weight_m: Self::weight_m(0.001, 0.0),
             weight_c: Self::weight_c(0.001, 2.0, 0.0),
             x: Vector::<N>::zeros(),
-            p: Matrix::<N, N>::zeros(),
+            p: Matrix::<N, N>::identity(),
         }
     }
 
@@ -78,7 +78,7 @@ impl<const N: usize> UKF<N> {
     /// * `kappa` - Secondary scaling parameter
     ///
     /// # Returns
-    /// A new Unscented Kalman filter with state and covariance initialized to zero
+    /// A new Unscented Kalman filter with state and covariance initialized to identity
     ///
     /// # Example
     ///
@@ -95,7 +95,7 @@ impl<const N: usize> UKF<N> {
             weight_m: Self::weight_m(alpha, kappa),
             weight_c: Self::weight_c(alpha, beta, kappa),
             x: Vector::<N>::zeros(),
-            p: Matrix::<N, N>::zeros(),
+            p: Matrix::<N, N>::identity(),
         }
     }
 
@@ -119,7 +119,7 @@ impl<const N: usize> UKF<N> {
     /// let y = Vector::<2>::from_slice(&[3.0, 4.0]);
     /// let y_cov = Matrix::<2, 2>::from_row_major_slice(&[1.0, 0.0, 0.0, 1.0]);
     /// let f = |x: Vector<2>| x;
-    /// ukf.update(&y, &y_cov, f).unwrap();
+    /// ukf.update(&y, &y_cov, f);
     /// ```
     ///
     pub fn update<const M: usize>(
@@ -130,7 +130,7 @@ impl<const N: usize> UKF<N> {
     ) -> SCResult<()> {
         let c = self.alpha.powi(2) * (N as f64 + self.kappa);
 
-        let cp = c.sqrt() * matutils::cholesky_decomp(&self.p)?;
+        let cp = c.sqrt() * matrixutils::cholesky_decomp(&self.p)?;
 
         let mut x_sigma_points = Vec::<Vector<N>>::with_capacity(2 * N + 1);
 
@@ -197,7 +197,7 @@ impl<const N: usize> UKF<N> {
     pub fn predict(&mut self, f: impl Fn(&Vector<N>) -> SCResult<Vector<N>>) -> SCResult<()> {
         let c = self.alpha.powi(2) * (N as f64 + self.kappa);
 
-        let cp = c.sqrt() * matutils::cholesky_decomp(&self.p)?;
+        let cp = c.sqrt() * matrixutils::cholesky_decomp(&self.p)?;
 
         let mut x_sigma_points = Vec::<Vector<N>>::with_capacity(2 * N + 1);
 

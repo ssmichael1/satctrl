@@ -24,4 +24,4 @@ pub type Matrix4 = Matrix<4, 4>;
 pub type Matrix5 = Matrix<5, 5>;
 pub type Matrix6 = Matrix<6, 6>;
 
-pub mod matutils;
+pub mod matrixutils;

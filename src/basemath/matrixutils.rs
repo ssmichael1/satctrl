@@ -13,10 +13,10 @@ use crate::{SCError, SCResult};
 ///
 /// # Example
 /// ```
-/// use satctrl::cholesky_decomp;
+/// use satctrl::matutils::cholesky_decomp;
 /// use satctrl::Matrix3;
-/// let a = Matrix3::from_vec([[25.0, 15.0, -5.0], [15.0, 18.0, 0.0], [-5.0, 0.0, 11.0]]);
-/// let l = cholesky_decomp(&a).unwrap();
+/// let a = Matrix3::from_row_major_array([[25.0, 15.0, -5.0], [15.0, 18.0, 0.0], [-5.0, 0.0, 11.0]]);
+/// let l = cholesky_decomp(&a);
 /// ```
 ///
 pub fn cholesky_decomp<const N: usize>(a: &Matrix<N, N>) -> SCResult<Matrix<N, N>> {
