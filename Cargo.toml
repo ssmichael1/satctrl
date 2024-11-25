@@ -13,6 +13,7 @@ name = "satctrl"
 [dev-dependencies]
 rand = "0.8.4"       # used for testing
 rand_distr = "0.4.2" # used for testing
+chrono = "0.4.19"    # used for testing
 
 [features]
 
