@@ -1,12 +1,23 @@
+use crate::Duration;
+
+/// A module for handling time and date
+/// conversions.  Time is stored natively as
+/// the number of microseconds since the
+/// Unix epoch (1970-01-01 00:00:00 UTC)
+/// with leap seconds accounted for.
+///
+/// The Instant struct provides methods for
+/// converting to and from Unix time, GPS time,
+/// Julian Date, Modified Julian Date, and
+/// Gregorian calendar date.
+///
+#[derive(Clone, Copy)]
 pub struct Instant {
     /// The number of microseconds since
     /// J2000 (2000-01-01 12:00:00 TT)
-    pub raw: i64,
+    pub(crate) raw: i64,
 }
 
-const TAI2TT: i64 = 32_184_000;
-const TT2TAI: i64 = -32_184_000;
-const LEAP_SECONDS_AT_EPOCH: i64 = 32;
 /// For conversian between Julian day and
 /// Gregorian calendar date
 /// See: https://en.wikipedia.org/wiki/Julian_day
@@ -40,42 +51,42 @@ mod gregorian_coefficients {
 }
 
 /// Leap second table
-/// The first element is the number of microseconds since J2000 epoch
-/// The second element is the number of leap seconds to add
+/// The first element is the number of microseconds since unixtime epoch
+/// The second element is the number of leap seconds to add as microseconds
 const LEAP_SECOND_TABLE: [(i64, i64); 28] = [
-    (536500868184000, 37),  // 2017-01-01
-    (488980867184000, 36),  // 2015-07-01
-    (394372866184000, 35),  // 2012-07-01
-    (284040065184000, 34),  // 2009-01-01
-    (189345664184000, 33),  // 2006-01-01
-    (-31579136816000, 32),  // 1999-01-01
-    (-79012737816000, 31),  // 1997-07-01
-    (-126273538816000, 30), // 1996-01-01
-    (-173707139816000, 29), // 1994-07-01
-    (-205243140816000, 28), // 1993-07-01
-    (-236779141816000, 27), // 1992-07-01
-    (-284039942816000, 26), // 1991-01-01
-    (-315575943816000, 25), // 1990-01-01
-    (-378734344816000, 24), // 1988-01-01
-    (-457703945816000, 23), // 1985-07-01
-    (-520862346816000, 22), // 1983-07-01
-    (-552398347816000, 21), // 1982-07-01
-    (-583934348816000, 20), // 1981-07-01
-    (-631195149816000, 19), // 1980-01-01
-    (-662731150816001, 18), // 1979-01-01
-    (-694267151816000, 17), // 1978-01-01
-    (-725803152816000, 16), // 1977-01-01
-    (-757425553816000, 15), // 1976-01-01
-    (-788961554816000, 14), // 1975-01-01
-    (-820497555816000, 13), // 1974-01-01
-    (-852033556816000, 12), // 1973-01-01
-    (-867931157816000, 11), // 1972-07-01
-    (-883655958816000, 10), // 1972-01-01
+    (1483228836000000, 37000000), // 2017-01-01
+    (1435708835000000, 36000000), // 2015-07-01
+    (1341100834000000, 35000000), // 2012-07-01
+    (1230768033000000, 34000000), // 2009-01-01
+    (1136073632000000, 33000000), // 2006-01-01
+    (915148831000000, 32000000),  // 1999-01-01
+    (867715230000000, 31000000),  // 1997-07-01
+    (820454429000000, 30000000),  // 1996-01-01
+    (773020828000000, 29000000),  // 1994-07-01
+    (741484827000000, 28000000),  // 1993-07-01
+    (709948826000000, 27000000),  // 1992-07-01
+    (662688025000000, 26000000),  // 1991-01-01
+    (631152024000000, 25000000),  // 1990-01-01
+    (567993623000000, 24000000),  // 1988-01-01
+    (489024022000000, 23000000),  // 1985-07-01
+    (425865621000000, 22000000),  // 1983-07-01
+    (394329620000000, 21000000),  // 1982-07-01
+    (362793619000000, 20000000),  // 1981-07-01
+    (315532818000000, 19000000),  // 1980-01-01
+    (283996817000000, 18000000),  // 1979-01-01
+    (252460816000000, 17000000),  // 1978-01-01
+    (220924815000000, 16000000),  // 1977-01-01
+    (189302414000000, 15000000),  // 1976-01-01
+    (157766413000000, 14000000),  // 1975-01-01
+    (126230412000000, 13000000),  // 1974-01-01
+    (94694411000000, 12000000),   // 1973-01-01
+    (78796810000000, 11000000),   // 1972-07-01
+    (63072009000000, 10000000),   // 1972-01-01
 ];
 
-/// Return the number of leap seconds at "raw" time,
-/// which is microseconds since J2000 epoch
-fn leapseconds(raw: i64) -> i64 {
+/// Return the number of leap "micro" seconds at "raw" time,
+/// which is microseconds since unixtime epoch
+fn microleapseconds(raw: i64) -> i64 {
     for (t, ls) in LEAP_SECOND_TABLE.iter() {
         if raw >= *t {
             return *ls;
@@ -88,7 +99,7 @@ impl Instant {
     /// Construct a new Instant from raw microseconds
     ///
     /// # Arguments
-    /// * `raw` - The number of microseconds since J2000 epoch
+    /// * `raw` - The number of microseconds since unixtime epoch
     ///
     /// # Returns
     /// A new Instant object
@@ -121,12 +132,23 @@ impl Instant {
     /// Construct a new Instant from Unix time
     ///
     /// # Arguments
-    /// * `unixtime` - The Unix time in seconds (since 1970-01-01 00:00:00 UTC)
+    /// * `unixtime` - The Unix time in seconds
     ///
     /// # Returns
     /// A new Instant object representing the input Unix time
+    ///
+    /// # Note:
+    /// Unixtime is the number of non-leap seconds since Jan 1 1970 00:00:00 UTC
+    /// (Leap seconds are ignored!!)
     pub fn from_unixtime(unixtime: f64) -> Self {
-        let raw = (unixtime * 1.0e6) as i64 + Instant::UNIX_EPOCH.raw;
+        let mut raw = (unixtime * 1.0e6) as i64 + Instant::UNIX_EPOCH.raw;
+
+        // Add leapseconds since unixtime ignores them
+        let ls = microleapseconds(raw);
+        raw += ls;
+        // Make sure adding the leapseconds didn't cross another
+        // leapsecond boundary
+        raw += microleapseconds(raw) - ls;
         Self { raw }
     }
 
@@ -137,39 +159,45 @@ impl Instant {
     ///
     /// # Note
     /// Unixtime is the number of non-leap seconds since
-    /// 1970-01-01 00:00:00 UTC.  It is not the same as TAI.
+    /// 1970-01-01 00:00:00 UTC.
     pub fn as_unixtime(&self) -> f64 {
-        (self.raw - Instant::UNIX_EPOCH.raw) as f64 * 1.0e-6
+        // Subtract leap seconds since unixtime ignores them
+        (self.raw - Instant::UNIX_EPOCH.raw - microleapseconds(self.raw)) as f64 * 1.0e-6
     }
 
     /// J2000 epoch is 2000-01-01 12:00:00 TT
-    pub const J2000: Self = Instant { raw: 0 };
+    /// TT (Terristrial Time) is 32.184 seconds ahead of TAI
+    pub const J2000: Self = Instant {
+        raw: 946728064184000,
+    };
 
     /// Unix epoch is 1970-01-01 00:00:00 UTC
-    pub const UNIX_EPOCH: Self = Instant {
-        raw: -946771135816000,
-    };
+    pub const UNIX_EPOCH: Self = Instant { raw: 0 };
 
     /// GPS epoch is 1980-01-06 00:00:00 UTC
     pub const GPS_EPOCH: Self = Instant {
-        raw: -630763148816000,
+        raw: 315964819000000,
     };
 
+    /// Modified Julian day epoch is
+    /// 1858-11-17 00:00:00 UTC
     pub const MJD_EPOCH: Self = Instant {
-        raw: -4453487935816000,
+        raw: -3506716800000000,
     };
 
-    /// As Modified Julian Date
-    /// (MJD = JD - 2400000.5)
+    /// As Modified Julian Date (UTC)
     /// Days since 1858-11-17 00:00:00 UTC
+    /// where each day is 86,400 seconds
+    /// (no leap seconds)
     pub fn as_mjd(&self) -> f64 {
-        // Make sure to account for le
-        ((self.raw - Instant::MJD_EPOCH.raw) as f64 * 1.0e-6
-            - (leapseconds(self.raw) - LEAP_SECONDS_AT_EPOCH) as f64)
-            / 86_400.0
+        // Make sure to account for leap seconds
+        (self.raw - Instant::MJD_EPOCH.raw - microleapseconds(self.raw)) as f64 / 86_400_000_000.0
     }
 
-    /// As Julian Date
+    /// As Julian Date (UTC)
+    /// Days since 4713 BC January 1, 12:00 UTC
+    /// where each day is 86,400 seconds
+    /// (no leap seconds)
     pub fn as_jd(&self) -> f64 {
         self.as_mjd() + 2400000.5
     }
@@ -178,8 +206,9 @@ impl Instant {
     /// (year, month, day, hour, minute, second), UTC
     pub fn gregorian(&self) -> (i32, i32, i32, i32, i32, f64) {
         // Fractional part of UTC day, accounting for leapseconds and TT - TAI
-        let tt_usec_of_day = self.raw % 86_400_000_000;
-        let mut utc_usec_of_day = tt_usec_of_day - leapseconds(self.raw) * 1_000_000 + TT2TAI;
+        let tai_usec_of_day = self.raw % 86_400_000_000;
+        let mut utc_usec_of_day = tai_usec_of_day - microleapseconds(self.raw);
+
         let mut jdadd: i64 = 0;
         if utc_usec_of_day > 86_400_000_000 {
             jdadd = 1;
@@ -234,8 +263,12 @@ impl Instant {
             + (minute as i64 * 60_000_000)
             + (second * 1_000_000.0) as i64
             + Instant::MJD_EPOCH.raw;
-        // Account for additional leap seconds from j2000 epoch
-        raw = raw + (leapseconds(raw) - LEAP_SECONDS_AT_EPOCH) * 1_000_000;
+        // Account for additional leap seconds if needed
+        let ls = microleapseconds(raw);
+        raw += ls;
+        // Make sure adding the leapseconds didn't cross another
+        // leapsecond boundary
+        raw = raw + microleapseconds(raw) - ls;
 
         Self { raw }
     }
@@ -243,8 +276,12 @@ impl Instant {
     pub fn now() -> Self {
         let now = std::time::SystemTime::now();
         let since_epoch = now.duration_since(std::time::UNIX_EPOCH).unwrap();
-        let mut raw = since_epoch.as_micros() as i64 + Instant::UNIX_EPOCH.raw;
-        raw += (leapseconds(raw) - LEAP_SECONDS_AT_EPOCH) * 1_000_000;
+        let mut raw = since_epoch.as_micros() as i64;
+        let ls = microleapseconds(raw);
+        raw += ls;
+        // Make sure adding the leapseconds didn't cross another
+        // leapsecond boundary
+        raw += microleapseconds(raw) - ls;
         Self { raw }
     }
 }
@@ -271,9 +308,197 @@ impl std::fmt::Debug for Instant {
     }
 }
 
+impl std::ops::Add<Duration> for Instant {
+    type Output = Self;
+
+    fn add(self, other: Duration) -> Self {
+        Self {
+            raw: self.raw + other.usec,
+        }
+    }
+}
+
+impl std::ops::Add<&Duration> for Instant {
+    type Output = Self;
+
+    fn add(self, other: &Duration) -> Self {
+        Self {
+            raw: self.raw + other.usec,
+        }
+    }
+}
+
+impl std::ops::Add<Duration> for &Instant {
+    type Output = Instant;
+
+    fn add(self, other: Duration) -> Instant {
+        Instant {
+            raw: self.raw + other.usec,
+        }
+    }
+}
+
+impl std::ops::Add<&Duration> for &Instant {
+    type Output = Instant;
+
+    fn add(self, other: &Duration) -> Instant {
+        Instant {
+            raw: self.raw + other.usec,
+        }
+    }
+}
+
+impl std::ops::Sub<Duration> for Instant {
+    type Output = Self;
+
+    fn sub(self, other: Duration) -> Self {
+        Self {
+            raw: self.raw - other.usec,
+        }
+    }
+}
+
+impl std::ops::Sub<&Duration> for Instant {
+    type Output = Self;
+
+    fn sub(self, other: &Duration) -> Self {
+        Self {
+            raw: self.raw - other.usec,
+        }
+    }
+}
+
+impl std::ops::Sub<Duration> for &Instant {
+    type Output = Instant;
+
+    fn sub(self, other: Duration) -> Instant {
+        Instant {
+            raw: self.raw - other.usec,
+        }
+    }
+}
+
+impl std::ops::Sub<&Duration> for &Instant {
+    type Output = Instant;
+
+    fn sub(self, other: &Duration) -> Instant {
+        Instant {
+            raw: self.raw - other.usec,
+        }
+    }
+}
+
+impl std::ops::Sub<Instant> for &Instant {
+    type Output = Duration;
+
+    fn sub(self, other: Instant) -> Duration {
+        Duration {
+            usec: self.raw - other.raw,
+        }
+    }
+}
+
+impl std::ops::Sub<Instant> for Instant {
+    type Output = Duration;
+
+    fn sub(self, other: Instant) -> Duration {
+        Duration {
+            usec: self.raw - other.raw,
+        }
+    }
+}
+
+impl std::ops::Sub<&Instant> for Instant {
+    type Output = Duration;
+
+    fn sub(self, other: &Instant) -> Duration {
+        Duration {
+            usec: self.raw - other.raw,
+        }
+    }
+}
+
+impl std::ops::Sub<&Instant> for &Instant {
+    type Output = Duration;
+
+    fn sub(self, other: &Instant) -> Duration {
+        Duration {
+            usec: self.raw - other.raw,
+        }
+    }
+}
+
+impl std::cmp::PartialEq for Instant {
+    fn eq(&self, other: &Self) -> bool {
+        self.raw == other.raw
+    }
+}
+
+impl std::cmp::Eq for Instant {}
+
+impl std::cmp::PartialOrd for Instant {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.raw.partial_cmp(&other.raw)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_j2000() {
+        let g = Instant::J2000.gregorian();
+        assert!(g.0 == 2000);
+        assert!(g.1 == 1);
+        assert!(g.2 == 1);
+        assert!(g.3 == 12);
+        assert!(g.4 == 0);
+        // J2000 is TT time, which is 32.184 seconds
+        assert!((g.5 - 32.184).abs() < 1.0e-7);
+    }
+
+    #[test]
+    fn test_ops() {
+        let t1 = Instant::from_gregorian(2024, 11, 13, 8, 0, 3.0);
+        let t2 = Instant::from_gregorian(2024, 11, 13, 8, 0, 4.0);
+        let dt = t2 - t1;
+        assert!(dt.as_microseconds() == 1_000_000);
+        let t2 = Instant::from_gregorian(2024, 11, 13, 8, 0, 2.0);
+        let dt = t2 - t1;
+        assert!(dt.as_microseconds() == -1_000_000);
+        let t2 = Instant::from_gregorian(2024, 11, 13, 8, 1, 3.0);
+        let dt = t2 - t1;
+        assert!(dt.as_microseconds() == 60_000_000);
+
+        let t3 = t2 + Duration::from_days(1.0);
+        let g = t3.gregorian();
+        assert!(g.0 == 2024);
+        assert!(g.1 == 11);
+        assert!(g.2 == 14);
+        assert!(g.3 == 8);
+        assert!(g.4 == 1);
+        assert!(g.5 == 3.0);
+    }
+
+    #[test]
+    fn test_gps() {
+        let g = Instant::GPS_EPOCH.gregorian();
+        assert!(g.0 == 1980);
+        assert!(g.1 == 1);
+        assert!(g.2 == 6);
+        assert!(g.3 == 0);
+        assert!(g.4 == 0);
+        assert!(g.5 == 0.0);
+    }
+
+    #[test]
+    fn test_instant2() {
+        let time = Instant::from_gregorian(2024, 11, 24, 13, 0, 0.0);
+        println!("jd = {}", time.as_jd());
+        println!("mjd = {}", time.as_mjd());
+        println!("time = {}", time);
+    }
 
     #[test]
     fn test_instant() {
