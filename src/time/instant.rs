@@ -1,5 +1,3 @@
-use crate::Duration;
-
 /// A module for handling time and date
 /// conversions.  Time is stored natively as
 /// the number of microseconds since the
@@ -88,7 +86,7 @@ const LEAP_SECOND_TABLE: [(i64, i64); 28] = [
 /// which is microseconds since unixtime epoch
 fn microleapseconds(raw: i64) -> i64 {
     for (t, ls) in LEAP_SECOND_TABLE.iter() {
-        if raw >= *t {
+        if raw > *t {
             return *ls;
         }
     }
@@ -206,20 +204,30 @@ impl Instant {
     /// (year, month, day, hour, minute, second), UTC
     pub fn gregorian(&self) -> (i32, i32, i32, i32, i32, f64) {
         // Fractional part of UTC day, accounting for leapseconds and TT - TAI
-        let tai_usec_of_day = self.raw % 86_400_000_000;
-        let mut utc_usec_of_day = tai_usec_of_day - microleapseconds(self.raw);
-
+        let utc_usec_of_day = (self.raw - microleapseconds(self.raw)) % 86_400_000_000;
         let mut jdadd: i64 = 0;
-        if utc_usec_of_day > 86_400_000_000 {
-            jdadd = 1;
-            utc_usec_of_day -= 86_400_000_000;
-        }
-        let hour = (utc_usec_of_day / 3_600_000_000) as i32;
+
+        let mut hour = utc_usec_of_day / 3_600_000_000;
         if hour < 12 {
             jdadd += 1
         }
-        let minute = ((utc_usec_of_day % 3_600_000_000) / 60_000_000) as i32;
-        let second = ((utc_usec_of_day % 60_000_000) as f64) * 1.0e-6;
+        let mut minute = (utc_usec_of_day - (hour * 3_600_000_000)) / 60_000_000;
+        let mut second =
+            (utc_usec_of_day - (hour * 3_600_000_000) - (minute * 60_000_000)) as f64 * 1.0e-6;
+
+        // Rare case where we are in a leap-second
+        for (t, _) in LEAP_SECOND_TABLE.iter() {
+            if self.raw >= *t && self.raw - *t < 1_000_000 {
+                hour = 23;
+                minute = 59;
+                if second == 0.0 {
+                    second = 60.0;
+                } else {
+                    second += 1.0;
+                }
+                jdadd -= 1;
+            }
+        }
 
         /// See: https://en.wikipedia.org/wiki/Julian_day
         /// or Expl. Suppl. Astron. Almanac, P. 619
@@ -234,7 +242,14 @@ impl Instant {
         let month = ((h / gc::s + gc::m) % gc::n) + 1;
         let year = (e / gc::p) - gc::y + (gc::n + gc::m - month) / gc::n;
 
-        (year as i32, month as i32, day as i32, hour, minute, second)
+        (
+            year as i32,
+            month as i32,
+            day as i32,
+            hour as i32,
+            minute as i32,
+            second,
+        )
     }
 
     pub fn from_gregorian(
@@ -291,7 +306,7 @@ impl std::fmt::Display for Instant {
         let (year, month, day, hour, minute, second) = self.gregorian();
         write!(
             f,
-            "{:04}-{:02}-{:02}T{:02}:{:02}:{:06.3}Z",
+            "{:04}-{:02}-{:02}T{:02}:{:02}:{:09.6}Z",
             year, month, day, hour, minute, second
         )
     }
@@ -308,143 +323,10 @@ impl std::fmt::Debug for Instant {
     }
 }
 
-impl std::ops::Add<Duration> for Instant {
-    type Output = Self;
-
-    fn add(self, other: Duration) -> Self {
-        Self {
-            raw: self.raw + other.usec,
-        }
-    }
-}
-
-impl std::ops::Add<&Duration> for Instant {
-    type Output = Self;
-
-    fn add(self, other: &Duration) -> Self {
-        Self {
-            raw: self.raw + other.usec,
-        }
-    }
-}
-
-impl std::ops::Add<Duration> for &Instant {
-    type Output = Instant;
-
-    fn add(self, other: Duration) -> Instant {
-        Instant {
-            raw: self.raw + other.usec,
-        }
-    }
-}
-
-impl std::ops::Add<&Duration> for &Instant {
-    type Output = Instant;
-
-    fn add(self, other: &Duration) -> Instant {
-        Instant {
-            raw: self.raw + other.usec,
-        }
-    }
-}
-
-impl std::ops::Sub<Duration> for Instant {
-    type Output = Self;
-
-    fn sub(self, other: Duration) -> Self {
-        Self {
-            raw: self.raw - other.usec,
-        }
-    }
-}
-
-impl std::ops::Sub<&Duration> for Instant {
-    type Output = Self;
-
-    fn sub(self, other: &Duration) -> Self {
-        Self {
-            raw: self.raw - other.usec,
-        }
-    }
-}
-
-impl std::ops::Sub<Duration> for &Instant {
-    type Output = Instant;
-
-    fn sub(self, other: Duration) -> Instant {
-        Instant {
-            raw: self.raw - other.usec,
-        }
-    }
-}
-
-impl std::ops::Sub<&Duration> for &Instant {
-    type Output = Instant;
-
-    fn sub(self, other: &Duration) -> Instant {
-        Instant {
-            raw: self.raw - other.usec,
-        }
-    }
-}
-
-impl std::ops::Sub<Instant> for &Instant {
-    type Output = Duration;
-
-    fn sub(self, other: Instant) -> Duration {
-        Duration {
-            usec: self.raw - other.raw,
-        }
-    }
-}
-
-impl std::ops::Sub<Instant> for Instant {
-    type Output = Duration;
-
-    fn sub(self, other: Instant) -> Duration {
-        Duration {
-            usec: self.raw - other.raw,
-        }
-    }
-}
-
-impl std::ops::Sub<&Instant> for Instant {
-    type Output = Duration;
-
-    fn sub(self, other: &Instant) -> Duration {
-        Duration {
-            usec: self.raw - other.raw,
-        }
-    }
-}
-
-impl std::ops::Sub<&Instant> for &Instant {
-    type Output = Duration;
-
-    fn sub(self, other: &Instant) -> Duration {
-        Duration {
-            usec: self.raw - other.raw,
-        }
-    }
-}
-
-impl std::cmp::PartialEq for Instant {
-    fn eq(&self, other: &Self) -> bool {
-        self.raw == other.raw
-    }
-}
-
-impl std::cmp::Eq for Instant {}
-
-impl std::cmp::PartialOrd for Instant {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.raw.partial_cmp(&other.raw)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Duration;
 
     #[test]
     fn test_j2000() {
@@ -456,6 +338,35 @@ mod tests {
         assert!(g.4 == 0);
         // J2000 is TT time, which is 32.184 seconds
         assert!((g.5 - 32.184).abs() < 1.0e-7);
+    }
+
+    #[test]
+    fn test_leapsecond() {
+        let mut t = Instant::new(LEAP_SECOND_TABLE[0].0);
+        let g = t.gregorian();
+        assert!(g.0 == 2016);
+        assert!(g.1 == 12);
+        assert!(g.2 == 31);
+        assert!(g.3 == 23);
+        assert!(g.4 == 59);
+        assert!(g.5 == 60.0);
+        t -= Duration::from_seconds(1.0);
+        let g = t.gregorian();
+        assert!(g.0 == 2016);
+        assert!(g.1 == 12);
+        assert!(g.2 == 31);
+        assert!(g.3 == 23);
+        assert!(g.4 == 59);
+        assert!(g.5 == 59.0);
+
+        t += Duration::from_seconds(2.0);
+        let g = t.gregorian();
+        assert!(g.0 == 2017);
+        assert!(g.1 == 1);
+        assert!(g.2 == 1);
+        assert!(g.3 == 0);
+        assert!(g.4 == 0);
+        assert!(g.5 == 0.0);
     }
 
     #[test]
@@ -493,21 +404,9 @@ mod tests {
     }
 
     #[test]
-    fn test_instant2() {
-        let time = Instant::from_gregorian(2024, 11, 24, 13, 0, 0.0);
-        println!("jd = {}", time.as_jd());
-        println!("mjd = {}", time.as_mjd());
-        println!("time = {}", time);
-    }
-
-    #[test]
-    fn test_instant() {
-        use chrono::{DateTime, Utc};
-        //let now = Instant::from_gregorian(2022, 11, 24, 13, 0, 13.0);
-        let now = Instant::now();
-        let tnow: DateTime<Utc> = std::time::SystemTime::now().into();
-        let tnow = tnow.to_rfc3339();
-        println!("now = {}", now);
-        println!("systemtime = {}", tnow);
+    fn test_jd() {
+        let time = Instant::from_gregorian(2024, 11, 24, 12, 0, 0.0);
+        assert!(time.as_jd() == 2_460_639.0);
+        assert!(time.as_mjd() == 60_638.5);
     }
 }

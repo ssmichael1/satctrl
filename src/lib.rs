@@ -1,6 +1,5 @@
 mod basemath;
-mod duration;
-mod instant;
+mod time;
 mod types;
 
 // All the types
@@ -40,5 +39,5 @@ pub mod filters;
 pub mod utils;
 
 // Time utilities
-pub use duration::Duration;
-pub use instant::Instant;
+pub use time::Duration;
+pub use time::Instant;
