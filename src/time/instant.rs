@@ -1,18 +1,16 @@
-/// A module for handling time and date
-/// conversions.  Time is stored natively as
-/// the number of microseconds since the
-/// Unix epoch (1970-01-01 00:00:00 UTC)
+use super::TimeScale;
+
+/// A module for handling time and date conversions.  Time is stored natively as
+/// the number of microseconds since the Unix epoch (1970-01-01 00:00:00 UTC)
 /// with leap seconds accounted for.
 ///
-/// The Instant struct provides methods for
-/// converting to and from Unix time, GPS time,
-/// Julian Date, Modified Julian Date, and
-/// Gregorian calendar date.
+/// The Instant struct provides methods for converting to and from Unix time, GPS time,
+/// Julian Date, Modified Julian Date, and Gregorian calendar date.
 ///
 #[derive(Clone, Copy)]
 pub struct Instant {
     /// The number of microseconds since
-    /// J2000 (2000-01-01 12:00:00 TT)
+    /// Unix epoch (1970-01-01 00:00:00 UTC)
     pub(crate) raw: i64,
 }
 
@@ -192,6 +190,35 @@ impl Instant {
         (self.raw - Instant::MJD_EPOCH.raw - microleapseconds(self.raw)) as f64 / 86_400_000_000.0
     }
 
+    /// As Modified Julian Date with given time scale
+    /// Days since 1858-11-17 00:00:00 UTC
+    ///
+    /// # Arguments
+    /// * `scale` - The time scale to use
+    ///
+    /// # Returns
+    /// The Modified Julian Date in the given time scale
+    ///
+    pub fn as_mjd_with_scale(&self, scale: TimeScale) -> f64 {
+        match scale {
+            TimeScale::UTC => self.as_mjd(),
+            TimeScale::TT => {
+                (self.raw - Instant::MJD_EPOCH.raw + 32_184_000) as f64 / 86_400_000_000.0
+            }
+            TimeScale::UT1 => self.as_mjd(),
+            TimeScale::TAI => (self.raw - Instant::MJD_EPOCH.raw) as f64 / 86_400_000_000.0,
+            TimeScale::GPS => {
+                if self > &Instant::GPS_EPOCH {
+                    (self.raw - Instant::GPS_EPOCH.raw - 19_000_000) as f64 / 86_400_000_000.0
+                } else {
+                    (self.raw - Instant::MJD_EPOCH.raw) as f64 / 86_400_000_000.0
+                }
+            }
+            TimeScale::TDB => self.as_mjd() + 0.0,
+            TimeScale::INVALID => 0.0,
+        }
+    }
+
     /// As Julian Date (UTC)
     /// Days since 4713 BC January 1, 12:00 UTC
     /// where each day is 86,400 seconds
@@ -350,6 +377,7 @@ mod tests {
         assert!(g.3 == 23);
         assert!(g.4 == 59);
         assert!(g.5 == 60.0);
+
         t -= Duration::from_seconds(1.0);
         let g = t.gregorian();
         assert!(g.0 == 2016);

@@ -94,28 +94,6 @@ impl Duration {
     }
 }
 
-/// Add two durations together
-impl std::ops::Add<Duration> for Duration {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        Self {
-            usec: self.usec + other.usec,
-        }
-    }
-}
-
-/// Subtract two durations
-impl std::ops::Sub<Duration> for Duration {
-    type Output = Self;
-
-    fn sub(self, other: Self) -> Self {
-        Self {
-            usec: self.usec - other.usec,
-        }
-    }
-}
-
 impl std::fmt::Display for Duration {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         if self.usec < 1_000_000 {
