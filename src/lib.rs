@@ -1,12 +1,14 @@
 mod basemath;
+//mod scerror;
+mod scerror;
 mod time;
-mod types;
 
 // All the types
-pub use types::SCError;
-pub use types::SCResult;
+pub use scerror::SCErr;
+pub use scerror::SCResult;
 
 // Matrix base types
+pub use basemath::MathError;
 pub use basemath::Matrix;
 pub use basemath::Quaternion;
 pub use basemath::Vector;
@@ -41,3 +43,5 @@ pub mod utils;
 // Time utilities
 pub use time::Duration;
 pub use time::Instant;
+pub use time::InstantError;
+pub use time::TimeScale;

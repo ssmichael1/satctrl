@@ -1,5 +1,5 @@
 use crate::Matrix;
-use crate::{SCError, SCResult};
+use crate::{SCErr, SCResult};
 
 /// Cholesky decomposition
 /// Takes the input positive-definite square matrix `a` and returns the lower triangular matrix `l`
@@ -13,7 +13,7 @@ use crate::{SCError, SCResult};
 ///
 /// # Example
 /// ```
-/// use satctrl::matutils::cholesky_decomp;
+/// use satctrl::matrixutils::cholesky_decomp;
 /// use satctrl::Matrix3;
 /// let a = Matrix3::from_row_major_array([[25.0, 15.0, -5.0], [15.0, 18.0, 0.0], [-5.0, 0.0, 11.0]]);
 /// let l = cholesky_decomp(&a);
@@ -29,7 +29,7 @@ pub fn cholesky_decomp<const N: usize>(a: &Matrix<N, N>) -> SCResult<Matrix<N, N
             }
             if i == j {
                 if sum <= 0.0 {
-                    return Err(SCError::NonPositiveDefiniteMatrix);
+                    return Err(SCErr::NonPositiveDefiniteMatrix);
                 }
                 l[(i, j)] = sum.sqrt();
             } else {

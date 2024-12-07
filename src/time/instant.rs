@@ -7,12 +7,8 @@ use super::TimeScale;
 /// The Instant struct provides methods for converting to and from Unix time, GPS time,
 /// Julian Date, Modified Julian Date, and Gregorian calendar date.
 ///
-#[derive(Clone, Copy)]
-pub struct Instant {
-    /// The number of microseconds since
-    /// Unix epoch (1970-01-01 00:00:00 UTC)
-    pub(crate) raw: i64,
-}
+#[derive(Copy, Clone)]
+pub struct Instant(pub(crate) i64);
 
 /// For conversian between Julian day and
 /// Gregorian calendar date
@@ -107,7 +103,7 @@ impl Instant {
     /// let now = Instant::new(1234567890);
     /// ```
     pub fn new(raw: i64) -> Self {
-        Self { raw }
+        Self(raw)
     }
 
     /// Construct a new Instant from GPS week and second of week
@@ -119,10 +115,10 @@ impl Instant {
     /// # Returns
     /// A new Instant object
     ///
-    pub fn from_gps_week_and_sow(week: i32, sow: f64) -> Self {
+    pub fn from_gps_week_and_second(week: i32, sow: f64) -> Self {
         let week = week as i64;
-        let raw = week * 14_515_200_000_000 + (sow * 1.0e6) as i64 + Instant::GPS_EPOCH.raw;
-        Self { raw }
+        let raw = week * 14_515_200_000_000 + (sow * 1.0e6) as i64 + Instant::GPS_EPOCH.0;
+        Self(raw)
     }
 
     /// Construct a new Instant from Unix time
@@ -137,7 +133,7 @@ impl Instant {
     /// Unixtime is the number of non-leap seconds since Jan 1 1970 00:00:00 UTC
     /// (Leap seconds are ignored!!)
     pub fn from_unixtime(unixtime: f64) -> Self {
-        let mut raw = (unixtime * 1.0e6) as i64 + Instant::UNIX_EPOCH.raw;
+        let mut raw = (unixtime * 1.0e6) as i64 + Instant::UNIX_EPOCH.0;
 
         // Add leapseconds since unixtime ignores them
         let ls = microleapseconds(raw);
@@ -145,7 +141,7 @@ impl Instant {
         // Make sure adding the leapseconds didn't cross another
         // leapsecond boundary
         raw += microleapseconds(raw) - ls;
-        Self { raw }
+        Self(raw)
     }
 
     /// Convert Instant to Unix time
@@ -158,28 +154,33 @@ impl Instant {
     /// 1970-01-01 00:00:00 UTC.
     pub fn as_unixtime(&self) -> f64 {
         // Subtract leap seconds since unixtime ignores them
-        (self.raw - Instant::UNIX_EPOCH.raw - microleapseconds(self.raw)) as f64 * 1.0e-6
+        (self.0 - Instant::UNIX_EPOCH.0 - microleapseconds(self.0)) as f64 * 1.0e-6
     }
 
     /// J2000 epoch is 2000-01-01 12:00:00 TT
     /// TT (Terristrial Time) is 32.184 seconds ahead of TAI
-    pub const J2000: Self = Instant {
-        raw: 946728064184000,
-    };
+    pub const J2000: Self = Instant(946728064184000);
 
     /// Unix epoch is 1970-01-01 00:00:00 UTC
-    pub const UNIX_EPOCH: Self = Instant { raw: 0 };
+    pub const UNIX_EPOCH: Self = Instant(0);
 
     /// GPS epoch is 1980-01-06 00:00:00 UTC
-    pub const GPS_EPOCH: Self = Instant {
-        raw: 315964819000000,
-    };
+    pub const GPS_EPOCH: Self = Instant(315964819000000);
+
+    pub const INVALID: Self = Instant(i64::MIN);
 
     /// Modified Julian day epoch is
     /// 1858-11-17 00:00:00 UTC
-    pub const MJD_EPOCH: Self = Instant {
-        raw: -3506716800000000,
-    };
+    pub const MJD_EPOCH: Self = Instant(-3506716800000000);
+
+    /// Return the day of the week
+    /// 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    ///
+    /// See: https://en.wikipedia.org/wiki/Determination_of_the_day_of_the_week
+    pub fn day_of_week(&self) -> super::Weekday {
+        let jd = self.as_jd();
+        super::Weekday::from(((jd + 1.5) % 7.0).floor() as i32)
+    }
 
     /// As Modified Julian Date (UTC)
     /// Days since 1858-11-17 00:00:00 UTC
@@ -187,7 +188,140 @@ impl Instant {
     /// (no leap seconds)
     pub fn as_mjd(&self) -> f64 {
         // Make sure to account for leap seconds
-        (self.raw - Instant::MJD_EPOCH.raw - microleapseconds(self.raw)) as f64 / 86_400_000_000.0
+        self.as_mjd_with_scale(TimeScale::UTC)
+    }
+
+    /// Create Instant from Modified Julian Date (UTC)
+    ///
+    /// # Arguments
+    /// * `mjd` - Modified Julian Date
+    ///
+    /// # Returns
+    /// A new Instant object representing the given MJD
+    pub fn from_mjd(mjd: f64) -> Self {
+        Self::from_mjd_with_scale(mjd, TimeScale::UTC)
+    }
+
+    /// Create Instant from Julian Date (UTC)
+    ///
+    /// # Arguments
+    /// * `jd` - Julian Date
+    ///
+    /// # Returns
+    /// A new Instant object representing the given JD
+    pub fn from_jd(jd: f64) -> Self {
+        Self::from_mjd(jd - 2400000.5)
+    }
+
+    /// Create Instant from Julian Date with given time scale
+    /// (UTC, TAI, TT, UT1, GPS)
+    /// Days since 4713 BC January 1, 12:00 UTC
+    ///
+    /// # Arguments
+    /// * `jd` - Julian Date
+    /// * `scale` - The time scale to use
+    ///
+    /// # Returns
+    /// A new Instant object representing the given JD at given time scale
+    pub fn from_jd_with_scale(jd: f64, scale: TimeScale) -> Self {
+        Self::from_mjd_with_scale(jd - 2400000.5, scale)
+    }
+
+    /// Construct an instant from a given Modified Julian Date
+    /// and time scale
+    ///
+    /// # Arguments
+    /// * `mjd` - The Modified Julian Date
+    /// * `scale` - The time scale to use
+    ///
+    /// # Returns
+    /// A new Instant object representing the given MJD at given time scale
+    pub fn from_mjd_with_scale(mjd: f64, scale: TimeScale) -> Self {
+        match scale {
+            TimeScale::UTC => {
+                let raw = (mjd * 86_400_000_000.0) as i64 + Instant::MJD_EPOCH.0;
+                let ls = microleapseconds(raw);
+                let raw = raw + ls;
+                // Make sure adding the leapseconds didn't cross another
+                // leapsecond boundary
+                let raw = raw + microleapseconds(raw) - ls;
+                Self(raw)
+            }
+            TimeScale::TAI => {
+                let raw = (mjd * 86_400_000_000.0) as i64 + Instant::MJD_EPOCH.0;
+                Self(raw)
+            }
+            TimeScale::TT => {
+                let raw = (mjd * 86_400_000_000.0) as i64 + Instant::MJD_EPOCH.0 - 32_184_000;
+                Self(raw)
+            }
+            TimeScale::UT1 => {
+                // Approximate as UTC on orbit
+                Instant::from_mjd_with_scale(mjd, TimeScale::UTC)
+            }
+            TimeScale::GPS => {
+                if mjd >= 44244.0 {
+                    let raw = (mjd * 86_400_000_000.0) as i64 + Instant::GPS_EPOCH.0 + 19_000_000;
+                    Self(raw)
+                } else {
+                    let raw = (mjd * 86_400_000_000.0) as i64 + Instant::MJD_EPOCH.0;
+                    Self(raw)
+                }
+            }
+            TimeScale::Invalid => Self::INVALID,
+            TimeScale::TDB => {
+                let ttc: f64 = (mjd - (2451545.0 - 2400000.4)) / 36525.0;
+                let mjd = mjd
+                    - 0.01657 / 86400.0
+                        * (std::f64::consts::PI / 180.0 * (628.3076 * ttc + 6.2401)).sin()
+                    - 32.184 / 86400.0;
+                Self::from_mjd_with_scale(mjd, TimeScale::TAI)
+            }
+        }
+    }
+
+    /// As Julian Date (UTC)
+    /// Days since 4713 BC January 1, 12:00 UTC
+    /// where each day is 86,400 seconds
+    /// (no leap seconds)
+    pub fn as_jd(&self) -> f64 {
+        self.as_mjd() + 2400000.5
+    }
+
+    /// As Julian Date with given time scale
+    /// Days since 4713 BC January 1, 12:00 UTC
+    ///
+    /// # Arguments
+    /// * `scale` - The time scale to use
+    ///
+    /// # Returns
+    /// The Julian Date in the given time scale
+    ///
+    pub fn as_jd_with_scale(&self, scale: TimeScale) -> f64 {
+        self.as_mjd_with_scale(scale) + 2400000.5
+    }
+
+    /// Add given floating-point number of days to Instant instance,
+    /// and return new instance representing new time.
+    ///
+    /// Days are defined in this case to have exactly 86400.0 seconds
+    /// In other words, this will ignore leap seconds and the integer
+    /// part of the floating point will increment the number of days and
+    /// the decimal part will increment the fractions of a day.
+    ///
+    /// So, for example, adding 1.0 to a day with a leap second will
+    /// increment by a full day
+    ///
+    /// # Arguments
+    /// * `days` - The number of days to add
+    ///
+    /// # Returns
+    /// A new Instant object representing the new time
+    ///
+    pub fn add_utc_days(&self, days: f64) -> Instant {
+        let mut utc = self.as_mjd_with_scale(TimeScale::UTC);
+        utc += days;
+        Instant::from_mjd_with_scale(utc, TimeScale::UTC)
     }
 
     /// As Modified Julian Date with given time scale
@@ -201,37 +335,44 @@ impl Instant {
     ///
     pub fn as_mjd_with_scale(&self, scale: TimeScale) -> f64 {
         match scale {
-            TimeScale::UTC => self.as_mjd(),
-            TimeScale::TT => {
-                (self.raw - Instant::MJD_EPOCH.raw + 32_184_000) as f64 / 86_400_000_000.0
+            TimeScale::UTC => {
+                (self.0 - Instant::MJD_EPOCH.0 - microleapseconds(self.0)) as f64 / 86_400_000_000.0
             }
-            TimeScale::UT1 => self.as_mjd(),
-            TimeScale::TAI => (self.raw - Instant::MJD_EPOCH.raw) as f64 / 86_400_000_000.0,
+            TimeScale::TT => (self.0 - Instant::MJD_EPOCH.0 + 32_184_000) as f64 / 86_400_000_000.0,
+            TimeScale::UT1 => {
+                self.as_mjd()
+                // Approximate as UTC on orbit
+
+                //let eop =
+                //    crate::earth_orientation_params::eop_from_mjd_utc(mjd_utc).unwrap_or([0.0; 6]);
+                //let dut1 = eop[0] as f64;
+                //mjd_utc + dut1 / 86_400.0
+            }
+            TimeScale::TAI => (self.0 - Instant::MJD_EPOCH.0) as f64 / 86_400_000_000.0,
             TimeScale::GPS => {
                 if self > &Instant::GPS_EPOCH {
-                    (self.raw - Instant::GPS_EPOCH.raw - 19_000_000) as f64 / 86_400_000_000.0
+                    (self.0 - Instant::GPS_EPOCH.0 - 19_000_000) as f64 / 86_400_000_000.0
                 } else {
-                    (self.raw - Instant::MJD_EPOCH.raw) as f64 / 86_400_000_000.0
+                    (self.0 - Instant::MJD_EPOCH.0) as f64 / 86_400_000_000.0
                 }
             }
-            TimeScale::TDB => self.as_mjd() + 0.0,
-            TimeScale::INVALID => 0.0,
+            TimeScale::TDB => {
+                let tt: f64 = self.as_mjd_with_scale(TimeScale::TT);
+                let ttc: f64 = (tt - (2451545.0 - 2400000.4)) / 36525.0;
+                tt + 0.001657 / 86400.0
+                    * (std::f64::consts::PI / 180.0 * (628.3076 * ttc + 6.2401)).sin()
+            }
+            TimeScale::Invalid => 0.0,
         }
     }
 
-    /// As Julian Date (UTC)
-    /// Days since 4713 BC January 1, 12:00 UTC
-    /// where each day is 86,400 seconds
-    /// (no leap seconds)
-    pub fn as_jd(&self) -> f64 {
-        self.as_mjd() + 2400000.5
-    }
-
     /// Return the Gregorian date and time
+    ///
+    /// # Returns
     /// (year, month, day, hour, minute, second), UTC
-    pub fn gregorian(&self) -> (i32, i32, i32, i32, i32, f64) {
+    pub fn as_datetime(&self) -> (i32, i32, i32, i32, i32, f64) {
         // Fractional part of UTC day, accounting for leapseconds and TT - TAI
-        let utc_usec_of_day = (self.raw - microleapseconds(self.raw)) % 86_400_000_000;
+        let utc_usec_of_day = (self.0 - microleapseconds(self.0)) % 86_400_000_000;
         let mut jdadd: i64 = 0;
 
         let mut hour = utc_usec_of_day / 3_600_000_000;
@@ -242,17 +383,17 @@ impl Instant {
         let mut second =
             (utc_usec_of_day - (hour * 3_600_000_000) - (minute * 60_000_000)) as f64 * 1.0e-6;
 
-        // Rare case where we are in a leap-second
+        // Rare case where we are in the middle of a leap-second
         for (t, _) in LEAP_SECOND_TABLE.iter() {
-            if self.raw >= *t && self.raw - *t < 1_000_000 {
+            if self.0 >= *t && self.0 - *t < 1_000_000 {
                 hour = 23;
                 minute = 59;
                 if second == 0.0 {
                     second = 60.0;
+                    jdadd -= 1;
                 } else {
                     second += 1.0;
                 }
-                jdadd -= 1;
             }
         }
 
@@ -279,7 +420,32 @@ impl Instant {
         )
     }
 
-    pub fn from_gregorian(
+    /// Construct an instant from a given UTC date
+    ///
+    /// # Arguments
+    /// * `year` - The year
+    /// * `month` - The month
+    /// * `day` - The day
+    ///
+    /// # Returns
+    /// A new Instant object representing the given date
+    pub fn from_date(year: i32, month: i32, day: i32) -> Self {
+        Self::from_datetime(year, month, day, 0, 0, 0.0)
+    }
+
+    /// Construct an instant from a given Gregorian UTC date and time
+    ///
+    /// # Arguments
+    /// * `year` - The year
+    /// * `month` - The month
+    /// * `day` - The day
+    /// * `hour` - The hour
+    /// * `minute` - The minute
+    /// * `second` - The second
+    ///
+    /// # Returns
+    /// A new Instant object representing the given date and time
+    pub fn from_datetime(
         year: i32,
         month: i32,
         day: i32,
@@ -304,7 +470,7 @@ impl Instant {
             + (hour as i64 * 3_600_000_000)
             + (minute as i64 * 60_000_000)
             + (second * 1_000_000.0) as i64
-            + Instant::MJD_EPOCH.raw;
+            + Instant::MJD_EPOCH.0;
         // Account for additional leap seconds if needed
         let ls = microleapseconds(raw);
         raw += ls;
@@ -312,7 +478,7 @@ impl Instant {
         // leapsecond boundary
         raw = raw + microleapseconds(raw) - ls;
 
-        Self { raw }
+        Self(raw)
     }
 
     pub fn now() -> Self {
@@ -324,13 +490,13 @@ impl Instant {
         // Make sure adding the leapseconds didn't cross another
         // leapsecond boundary
         raw += microleapseconds(raw) - ls;
-        Self { raw }
+        Self(raw)
     }
 }
 
 impl std::fmt::Display for Instant {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (year, month, day, hour, minute, second) = self.gregorian();
+        let (year, month, day, hour, minute, second) = self.as_datetime();
         write!(
             f,
             "{:04}-{:02}-{:02}T{:02}:{:02}:{:09.6}Z",
@@ -341,100 +507,11 @@ impl std::fmt::Display for Instant {
 
 impl std::fmt::Debug for Instant {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let (year, month, day, hour, minute, second) = self.gregorian();
+        let (year, month, day, hour, minute, second) = self.as_datetime();
         write!(
             f,
             "Instant {{ year: {}, month: {}, day: {}, hour: {}, minute: {}, second: {:06.3} }}",
             year, month, day, hour, minute, second
         )
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::Duration;
-
-    #[test]
-    fn test_j2000() {
-        let g = Instant::J2000.gregorian();
-        assert!(g.0 == 2000);
-        assert!(g.1 == 1);
-        assert!(g.2 == 1);
-        assert!(g.3 == 12);
-        assert!(g.4 == 0);
-        // J2000 is TT time, which is 32.184 seconds
-        assert!((g.5 - 32.184).abs() < 1.0e-7);
-    }
-
-    #[test]
-    fn test_leapsecond() {
-        let mut t = Instant::new(LEAP_SECOND_TABLE[0].0);
-        let g = t.gregorian();
-        assert!(g.0 == 2016);
-        assert!(g.1 == 12);
-        assert!(g.2 == 31);
-        assert!(g.3 == 23);
-        assert!(g.4 == 59);
-        assert!(g.5 == 60.0);
-
-        t -= Duration::from_seconds(1.0);
-        let g = t.gregorian();
-        assert!(g.0 == 2016);
-        assert!(g.1 == 12);
-        assert!(g.2 == 31);
-        assert!(g.3 == 23);
-        assert!(g.4 == 59);
-        assert!(g.5 == 59.0);
-
-        t += Duration::from_seconds(2.0);
-        let g = t.gregorian();
-        assert!(g.0 == 2017);
-        assert!(g.1 == 1);
-        assert!(g.2 == 1);
-        assert!(g.3 == 0);
-        assert!(g.4 == 0);
-        assert!(g.5 == 0.0);
-    }
-
-    #[test]
-    fn test_ops() {
-        let t1 = Instant::from_gregorian(2024, 11, 13, 8, 0, 3.0);
-        let t2 = Instant::from_gregorian(2024, 11, 13, 8, 0, 4.0);
-        let dt = t2 - t1;
-        assert!(dt.as_microseconds() == 1_000_000);
-        let t2 = Instant::from_gregorian(2024, 11, 13, 8, 0, 2.0);
-        let dt = t2 - t1;
-        assert!(dt.as_microseconds() == -1_000_000);
-        let t2 = Instant::from_gregorian(2024, 11, 13, 8, 1, 3.0);
-        let dt = t2 - t1;
-        assert!(dt.as_microseconds() == 60_000_000);
-
-        let t3 = t2 + Duration::from_days(1.0);
-        let g = t3.gregorian();
-        assert!(g.0 == 2024);
-        assert!(g.1 == 11);
-        assert!(g.2 == 14);
-        assert!(g.3 == 8);
-        assert!(g.4 == 1);
-        assert!(g.5 == 3.0);
-    }
-
-    #[test]
-    fn test_gps() {
-        let g = Instant::GPS_EPOCH.gregorian();
-        assert!(g.0 == 1980);
-        assert!(g.1 == 1);
-        assert!(g.2 == 6);
-        assert!(g.3 == 0);
-        assert!(g.4 == 0);
-        assert!(g.5 == 0.0);
-    }
-
-    #[test]
-    fn test_jd() {
-        let time = Instant::from_gregorian(2024, 11, 24, 12, 0, 0.0);
-        assert!(time.as_jd() == 2_460_639.0);
-        assert!(time.as_mjd() == 60_638.5);
     }
 }

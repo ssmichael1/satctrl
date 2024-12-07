@@ -1,7 +1,9 @@
+mod matherr;
 mod matrix;
 mod quaternion;
 mod rk4;
 
+pub use matherr::MathError;
 pub use matrix::Matrix;
 pub use matrix::Vector;
 pub use quaternion::Quaternion;
