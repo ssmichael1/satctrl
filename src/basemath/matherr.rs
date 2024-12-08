@@ -13,8 +13,8 @@ pub enum MathError {
     NotPositiveDefiniteMatrix,
     #[error("Matrix is not positive semi-definite")]
     NotPositiveSemiDefiniteMatrix,
-    #[error("Invalid Index: {0}")]
-    InvalidIndex(i32),
+    #[error("Invalid Index: {0}, {1}")]
+    InvalidIndex(usize, usize),
 }
 
 impl<T> From<MathError> for SCResult<T> {

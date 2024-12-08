@@ -1,7 +1,11 @@
 mod matherr;
 mod matrix;
+mod matrixops;
 mod quaternion;
 mod rk4;
+
+#[cfg(test)]
+mod tests;
 
 pub use matherr::MathError;
 pub use matrix::Matrix;
