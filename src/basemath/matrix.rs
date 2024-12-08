@@ -531,6 +531,10 @@ impl<const N: usize> Vector<N> {
         Self { data: [data] }
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = &'_ f64> {
+        self.data[0].iter()
+    }
+
     /// Create a new vector from a slice
     ///
     /// # Arguments
@@ -723,5 +727,27 @@ impl Vector<3> {
         let dot = self.dot(other);
         let norm = self.norm() * other.norm();
         (dot / norm).acos()
+    }
+}
+
+impl<const N: usize> From<[f64; N]> for Vector<N> {
+    fn from(data: [f64; N]) -> Self {
+        Self::from_slice(&data)
+    }
+}
+
+impl<const M: usize, const N: usize> From<[[f64; M]; N]> for Matrix<M, N> {
+    fn from(data: [[f64; M]; N]) -> Self {
+        Self::from_col_major_array(data)
+    }
+}
+
+impl<const M: usize> FromIterator<f64> for Vector<M> {
+    fn from_iter<I: IntoIterator<Item = f64>>(iter: I) -> Self {
+        let mut v = Vector::<M>::zeros();
+        for (i, value) in iter.into_iter().enumerate() {
+            v.data[0][i] = value;
+        }
+        v
     }
 }

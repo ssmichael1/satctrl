@@ -1,6 +1,7 @@
 mod matherr;
 mod matrix;
 mod matrixops;
+mod ode;
 mod quaternion;
 mod rk4;
 
