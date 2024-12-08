@@ -1,5 +1,7 @@
 mod basemath;
+pub mod consts;
 pub mod frametransform;
+mod itrfcoord;
 mod time;
 
 // All the types
@@ -39,6 +41,7 @@ pub mod filters;
 pub mod utils;
 
 // Time utilities
+pub use itrfcoord::ITRFCoord;
 pub use time::Duration;
 pub use time::Instant;
 pub use time::InstantError;
