@@ -1,11 +1,9 @@
 mod basemath;
 //mod scerror;
-mod scerror;
 mod time;
 
 // All the types
-pub use scerror::SCErr;
-pub use scerror::SCResult;
+pub type SCResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 // Matrix base types
 pub use basemath::MathError;

@@ -1,3 +1,4 @@
+use crate::SCResult;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -18,4 +19,12 @@ pub enum InstantError {
     InvalidString(String),
     #[error("Invalid Format Character: {0}")]
     InvalidFormat(char),
+    #[error("Missing Format Character")]
+    MissingFormat,
+}
+
+impl<T> From<InstantError> for SCResult<T> {
+    fn from(err: InstantError) -> Self {
+        Err(Box::new(err))
+    }
 }

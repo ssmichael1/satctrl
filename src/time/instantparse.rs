@@ -6,6 +6,7 @@ use crate::Instant;
 use crate::{InstantError, SCResult};
 use itertools::Itertools;
 
+/// Full month names
 const MONTH_NAMES: [&str; 12] = [
     "January",
     "February",
@@ -21,6 +22,7 @@ const MONTH_NAMES: [&str; 12] = [
     "December",
 ];
 
+/// Abbreviated month names
 const MONTH_ABBRS: [&str; 12] = [
     "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
