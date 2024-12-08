@@ -52,10 +52,12 @@ mod tests {
 
         use std::f64::consts::PI;
 
-        let mut settings = RKAdaptiveSettings::default();
-        settings.dense_output = false;
-        settings.abserror = 1e-12;
-        settings.relerror = 1e-12;
+        let settings = RKAdaptiveSettings {
+            dense_output: false,
+            abserror: 1e-12,
+            relerror: 1e-12,
+            ..Default::default()
+        };
 
         let res = RKV98NoInterp::integrate(
             0.0,

@@ -3,6 +3,12 @@
 //! This module contains Runga-Kutta ODE solvers of varying order and accuracy.
 //!
 //!
+//! Solvers use Runga-Kutta coefficients from Jim Verner's 2006 paper "High-Order Runge-Kutta
+//! Methods for Ordinary Differential Equations" and the 2010 paper "High-Order Embedded Runge-Kutta
+//! Formulae" by Tsitouras.
+//!
+//!
+//!
 //! Author: Steven Michael (ssmichael@gmail.com)
 //! Date: 12/8/24
 //! License: MIT

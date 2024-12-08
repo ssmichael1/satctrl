@@ -134,10 +134,12 @@ mod tests {
 
         use std::f64::consts::PI;
 
-        let mut settings = RKAdaptiveSettings::default();
-        settings.dense_output = false;
-        settings.abserror = 1e-8;
-        settings.relerror = 1e-8;
+        let settings = RKAdaptiveSettings {
+            dense_output: false,
+            abserror: 1e-8,
+            relerror: 1e-8,
+            ..RKAdaptiveSettings::default()
+        };
 
         let _res = RKTS54::integrate(
             0.0,
@@ -156,10 +158,12 @@ mod tests {
 
         use std::f64::consts::PI;
 
-        let mut settings = RKAdaptiveSettings::default();
-        settings.abserror = 1e-14;
-        settings.relerror = 1e-14;
-        settings.dense_output = true;
+        let settings = RKAdaptiveSettings {
+            abserror: 1e-14,
+            relerror: 1e-14,
+            dense_output: true,
+            ..RKAdaptiveSettings::default()
+        };
 
         let sol = RKTS54::integrate(0.0, PI, &y0, |_t, &y| Ok([y[1], -y[0]].into()), &settings)?;
 
